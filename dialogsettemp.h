@@ -18,6 +18,8 @@ public:
     int getTemperature100();
     quint32 getTargetStepTimeSec();
 
+    qreal getTargetTemp() const;
+
 private slots:
     void on_pushButton_clicked();
 

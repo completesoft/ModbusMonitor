@@ -25,6 +25,11 @@ quint32 DialogSetTemp::getTargetStepTimeSec()
     return nint(ui->doubleSpinBox_2->value()*60*60);
 }
 
+qreal DialogSetTemp::getTargetTemp() const
+{
+    return ui->doubleSpinBox->value();
+}
+
 void DialogSetTemp::on_pushButton_clicked()
 {
     this->accept();

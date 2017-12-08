@@ -52,37 +52,34 @@ MainWindow::~MainWindow()
 void MainWindow::onControllerPollComplete()
 {
 
-    int indexCurrentTemperature = settings->value("Chart/current_temperature_index", 0).toInt() - 1;
 
-    ui->lblTargetTemp->setText(QString::number(controller->valueTargetTemp(), 'f', 2));
-    ui->lblCurrentTemp->setText(
-                QString::number(controller->valueTemperatures()[indexCurrentTemperature], 'f', 2)
-                );
+//    qDebug() << controller->getControllerData()->realTemp1();
 
-    showTempOnChart(controller->valueTemperatures()[indexCurrentTemperature]);
+//    int indexCurrentTemperature = settings->value("Chart/current_temperature_index", 0).toInt() - 1;
+
+    ui->lblTargetTemp->setText(numberFormat(controller->controllerData()->realTargetTemp()));
+    ui->lblCurrentTemp->setText(numberFormat(controller->controllerData()->realTemp1()));
+
+    showTempOnChart(controller->controllerData()->realTemp1());
 
    // onTimerEmulatorShot();
 
+    ui->lblP->setText(numberFormat(controller->controllerData()->realPIDp()));
+    ui->lblI->setText(numberFormat(controller->controllerData()->realPIDi()));
+    ui->lblD->setText(numberFormat(controller->controllerData()->realPIDd()));
 
-    ui->lblP->setText(QString::number(controller->valuePIDp(), 'f', 2));
-    ui->lblI->setText(QString::number(controller->valuePIDi(), 'f', 2));
-    ui->lblD->setText(QString::number(controller->valuePIDd(), 'f', 2));
+    ui->lblUptime->setText(timeSecToHMS(controller->controllerData()->fullUptimeSec()));
 
-    ui->lblUptime->setText(timeSecToHMS(controller->valueUptimeSec()));
+    ui->lblSteptime->setText(timeSecToHMS(controller->controllerData()->fullSteptimeSec()));
 
-    ui->lblSteptime->setText(timeSecToHMS(controller->valueSteptimeSec()));
-
-    logDlg->addVectorData(controller->getRawData());
-
-
-
+//    logDlg->addVectorData(controller->getRawData());
 
     db->saveValues(
                 QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"),
-                timeSecToHMS(controller->valueUptimeSec()),
-                timeSecToHMS(controller->valueSteptimeSec()),
-                QString::number(controller->valueTargetTemp(), 'f', 2),
-                QString::number(controller->valueTemperatures()[indexCurrentTemperature], 'f', 2)
+                timeSecToHMS(controller->controllerData()->fullUptimeSec()),
+                timeSecToHMS(controller->controllerData()->fullSteptimeSec()),
+                numberFormat(controller->controllerData()->realTargetTemp()),
+                numberFormat(controller->controllerData()->realTemp1())
                 );
 
 
@@ -118,10 +115,13 @@ void MainWindow::onControllerStateChanged(Controller::ModbusState state)
         logDlg->addMessage("Подключение установлено.");
         pollTimer->start();
         controller->poll();
+        ui->labelError->setText("");
+
         break;
 
     case Controller::Disconnected:
         logDlg->addMessage("Подключение разорвано.");
+        ui->labelError->setText("Соединение разорвано");
         break;
 
     default:
@@ -150,25 +150,30 @@ void MainWindow::onControllerStatusChanged(Controller::Status status)
 
     ui->startButton->setEnabled(startEnable);
     ui->stopButton->setEnabled(!startEnable);
+    ui->btnSetParameters->setEnabled(startEnable);
 
     switch (status) {
     case Controller::StatusStarted:
         logDlg->addMessage("Контроллер запущен");
+        ui->labelError->setText("");
         break;
     case Controller::StatusStopped:
         logDlg->addMessage("Контроллер остановлен");
+        ui->labelError->setText("");
         break;
     case Controller::StatusError:
         logDlg->addMessage(QString("Ошибка контроллера, код ошибки - (%1)")
                            .arg(controller->errorCode()));
-        QMessageBox::critical(
-                    this,
-                    "ОШИБКА",
-                    settings->value(QString("Errors/%1").arg(controller->errorCode()),
-                                    QString("Ошибка №%1").arg(controller->errorCode()))
-                    .toString()
-                    );
+//        QMessageBox::critical(
+//                    this,
+//                    "ОШИБКА",
+//                    settings->value(QString("Errors/%1").arg(controller->errorCode()),
+//                                    QString("Ошибка №%1").arg(controller->errorCode()))
+//                    .toString()
+//                    );
 
+        ui->labelError->setText(settings->value(QString("Errors/%1").arg(controller->errorCode()),
+                                            QString("Ошибка №%1").arg(controller->errorCode())).toString());
 
         qDebug() << "ErrorString" << QString("ErrorDict/%1").arg(controller->errorCode());
 
@@ -308,7 +313,7 @@ void MainWindow::setupChart()
 //    chart->addSeries(series2);
 
 //    chart->legend()->hide();
-    chart->setAnimationOptions(QChart::SeriesAnimations);
+//    chart->setAnimationOptions(QChart::SeriesAnimations);
 
     QDateTimeAxis *axisX = new QDateTimeAxis;
     axisX->setTickCount(CHART_TICK_COUNT);
@@ -332,6 +337,7 @@ void MainWindow::setupChart()
 
     QChartView *chartView = new QChartView(chart);
     chartView->setRenderHint(QPainter::Antialiasing);
+
 
     ui->horizontalLayout->addWidget(chartView);
 
@@ -579,12 +585,18 @@ void MainWindow::showTempOnChart(qreal temp)
 
 
     series->append(momentInTime.toMSecsSinceEpoch(), temp);
+    qDebug() << "count" <<series->count();
+    if (series->count() > CHART_X_RANGE_SEC*CHART_INTERVAL_SEC) {
+        series->removePoints(0, 1);
+        qDebug() << "remove";
+    }
 
     RangeMinMax rangeMinMax = getMinMaxRangeFromSeries(series, CHART_X_RANGE_SEC*CHART_INTERVAL_SEC);
 
 
     if (_chartScroll) {
         chart->scroll(chart->plotArea().width()/CHART_X_RANGE_SEC*CHART_INTERVAL_SEC, 0);
+
     }
 
     qreal diff = rangeMinMax.max - rangeMinMax.min;
@@ -629,7 +641,7 @@ QString MainWindow::timeSecToHMS(const quint32 sec)
     quint32 seconds = sec % 60;
     quint32 hours = minutes / 60;
 
-    qDebug() << sec << minutes << hours;
+
 
     minutes = minutes % 60;
 
@@ -638,6 +650,12 @@ QString MainWindow::timeSecToHMS(const quint32 sec)
             .arg(minutes, 2, 10, QLatin1Char('0'))
             .arg(seconds, 2, 10, QLatin1Char('0'));
 
+
+}
+
+QString MainWindow::numberFormat(const qreal value)
+{
+    return QString::number(value, 'f', 2);
 
 }
 
@@ -663,9 +681,10 @@ void MainWindow::sendRequestTemp()
 void MainWindow::on_btnSetParameters_clicked()
 {
 
-    DialogSetTemp dlg(ui->lblTargetTemp->text().toDouble(), controller->valueSteptimeSec()/3600.0);
+    DialogSetTemp dlg(ui->lblTargetTemp->text().toDouble(), controller->controllerData()->fullSteptimeSec()/3600.0);
     if (dlg.exec()) {
-        controller->setParameters(dlg.getTemperature100(), dlg.getTargetStepTimeSec());
+        controller->controllerData()->setFullSteptime(dlg.getTargetStepTimeSec());
+        controller->controllerData()->setRealTargetTemp(dlg.getTargetTemp());
     }
 }
 
@@ -786,7 +805,14 @@ void MainWindow::on_setPidButton_clicked()
     DialogSetPid dlg(ui->lblP->text().toFloat(), ui->lblI->text().toFloat(),
                      ui->lblD->text().toFloat());
     if (dlg.exec()) {
-        controller->setPID(dlg.getP100(), dlg.getI100(), dlg.getD100());
+
+        controller->controllerData()->setRealPIDp(dlg.getP());
+        controller->controllerData()->setRealPIDi(dlg.getI());
+        controller->controllerData()->setRealPIDd(dlg.getD());
+        controller->controllerData()->setWritePid(1);
+
+
+//        controller->setPID(dlg.getP100(), dlg.getI100(), dlg.getD100());
     }
 }
 

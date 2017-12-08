@@ -33,7 +33,8 @@ SOURCES += \
     log.cpp \
     controller.cpp \
     dialogsetpid.cpp \
-    dialogarchive.cpp
+    dialogarchive.cpp \
+    controllerdata.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -44,7 +45,8 @@ HEADERS += \
     log.h \
     controller.h \
     dialogsetpid.h \
-    dialogarchive.h
+    dialogarchive.h \
+    controllerdata.h
 
 FORMS += \
         mainwindow.ui \

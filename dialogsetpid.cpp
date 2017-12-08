@@ -20,19 +20,20 @@ DialogSetPid::~DialogSetPid()
     delete ui;
 }
 
-int DialogSetPid::getP100()
+
+qreal DialogSetPid::getP() const
 {
-    return nint(ui->spinP->value()*100);
+    return ui->spinP->value();
 }
 
-int DialogSetPid::getI100()
+qreal DialogSetPid::getI() const
 {
-    return nint(ui->spinI->value()*100);
+    return ui->spinI->value();
 }
 
-int DialogSetPid::getD100()
+qreal DialogSetPid::getD() const
 {
-    return nint(ui->spinD->value()*100);
+    return ui->spinD->value();
 }
 
 void DialogSetPid::on_btnSetPid_clicked()
@@ -40,7 +41,3 @@ void DialogSetPid::on_btnSetPid_clicked()
     this->accept();
 }
 
-int DialogSetPid::nint(double x)
-{
-    return x < 0 ? (int)ceil(x) : (int)floor(x);
-}

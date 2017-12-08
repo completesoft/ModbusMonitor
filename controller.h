@@ -9,6 +9,8 @@
 #include <QModbusDataUnit>
 #include <QTimer>
 
+#include "controllerdata.h"
+
 class Controller : public QObject
 {
     Q_OBJECT
@@ -59,6 +61,10 @@ public:
 
     QVector<qint16> getRawData() const;
 
+
+    ControllerData *controllerData() const;
+    void setControllerData(ControllerData *controllerData);
+
 signals:
     void modbusErrorOccured(const QString &error);
     void modbusStateChanged(Controller::ModbusState state);
@@ -101,6 +107,9 @@ public slots:
             );
 
 private:
+
+
+    ControllerData *_controllerData;
 
     int _regBase;
     int _regCount;

@@ -9,6 +9,7 @@ INPUT(
 ./debug\controller.o
 ./debug\dialogsetpid.o
 ./debug\dialogarchive.o
+./debug\controllerdata.o
 ./debug\moc_mainwindow.o
 ./debug\moc_dialogsettemp.o
 ./debug\moc_dialogsettings.o
@@ -18,4 +19,5 @@ INPUT(
 ./debug\moc_controller.o
 ./debug\moc_dialogsetpid.o
 ./debug\moc_dialogarchive.o
+./debug\moc_controllerdata.o
 );

@@ -13,8 +13,13 @@ Controller::Controller(
     _ipModbusAddr(ip_modbus_addr),
     lastReply(nullptr),
     modbusClient(nullptr),
-    _dataChanged(false)
+    _dataChanged(false),
+    _controllerData(nullptr)
 {
+
+
+    _controllerData = new ControllerData(this);
+
     modbusClient = new QModbusTcpClient(this);
 
     modbusClient->setConnectionParameter(
@@ -38,6 +43,7 @@ Controller::Controller(
 
 
 
+
 }
 
 void Controller::ipconnect()
@@ -53,22 +59,32 @@ void Controller::ipconnect()
 void Controller::start()
 {
 
+
+    _controllerData->setStart(1);
+
+
    // dataChangedOneValue(_regBase+_regStart, 1);
 
-    _dataToSend = _data;
-    _dataToSend[_regBase + _regStart] = 1;
+//    _dataToSend = _data;
+//    _dataToSend[_regBase + _regStart] = 1;
 
-    _dataChanged = true;
+//    _dataChanged = true;
+
+
+
 
 
 }
 
 void Controller::stop()
 {
-    _dataToSend = _data;
-    _dataToSend[_regBase + _regStop] = 1;
 
-    _dataChanged = true;
+
+    _controllerData->setStop(1);
+//    _dataToSend = _data;
+//    _dataToSend[_regBase + _regStop] = 1;
+
+//    _dataChanged = true;
 }
 
 
@@ -110,19 +126,24 @@ void Controller::readDataResponse()
 
 //         _data = reply->result().values();
 
-         _data.clear();
-         foreach (quint16 value, reply->result().values()) {
-            _data.append(qint16(value));
-         }
+//         _data.clear();
+//         foreach (quint16 value, reply->result().values()) {
+//            _data.append(qint16(value));
+//         }
 
 
+        QVector<quint16> data = reply->result().values();
+        _controllerData->fromModbusData(data);
+        statusParsing(_controllerData->status());
 
+        this->writeDataRequest();
 
+        emit pollComplete();
 
-         this->setValues();
-         if (_dataChanged) {
-            this->writeDataRequest();
-         }
+//         this->setValues();
+//         if (_dataChanged) {
+//            this->writeDataRequest();
+//         }
 
 
 
@@ -148,7 +169,7 @@ void Controller::writeDataResponse()
     }
 
     if (reply->error() == QModbusClient::NoError) {
-
+        _controllerData->setChanged(false);
 
     }
     else {
@@ -292,6 +313,20 @@ void Controller::setRegsPID(
     regPID_write = offset_write_pid;
 }
 
+ControllerData *Controller::controllerData() const
+{
+    return _controllerData;
+}
+
+void Controller::setControllerData(ControllerData *controllerData)
+{
+    _controllerData = controllerData;
+}
+
+
+
+
+
 int Controller::valueSteptimeHi() const
 {
     return _valueSteptimeHi;
@@ -348,7 +383,14 @@ float Controller::valueTargetTemp() const
 void Controller::poll()
 {
 
-    this->readDataRequest();
+    if (_controllerData->changed()) {
+        this->writeDataRequest();
+    }
+    else {
+        this->readDataRequest();
+    }
+
+
 
 }
 
@@ -432,7 +474,7 @@ qint32 Controller::from16Bit(qint16 high, qint16 low) const
 
 quint16 Controller::hi_from32Bit(quint32 input) const
 {
-    qDebug() << input << static_cast<quint16>((input >> 16) & 0xffff);
+
     return static_cast<quint16>((input >> 16) & 0xffff);
 }
 
@@ -499,28 +541,30 @@ void Controller::writeDataRequest()
         return;
 
 
-
-    if (_dataChanged) {
-        _dataChanged = false;
-
-    }
-    else {
-      _dataToSend = _data;
-    }
-
-    _dataToSend[_regBase + _regPing] = 1; //ping modify
+    _controllerData->setPing(1); //ping modify
 
 
+//    if (_dataChanged) {
+//        _dataChanged = false;
 
-    //qint16 vector to quint16 vector
-    QVector<quint16> writeData;
-    foreach (qint16 value, _dataToSend) {
-        writeData.append(quint16(value));
-    }
+//    }
+//    else {
+//      _dataToSend = _data;
+//    }
+
+//    _dataToSend[_regBase + _regPing] = 1; //ping modify
+
+
+
+//    //qint16 vector to quint16 vector
+//    QVector<quint16> writeData;
+//    foreach (qint16 value, _dataToSend) {
+//        writeData.append(quint16(value));
+//    }
 
 
     QModbusDataUnit writeDataUnit(QModbusDataUnit::HoldingRegisters,
-                                 _regBase, writeData);
+                                 _regBase, _controllerData->toModbusData());
 
 
     if (auto *reply = modbusClient->sendWriteRequest(writeDataUnit, _ipModbusAddr)) {
@@ -678,7 +722,7 @@ void Controller::onError(QModbusDevice::Error error)
     if (error == QModbusDevice::ConnectionError) {
         emit modbusErrorOccured("Ошибка подключения. " + modbusClient->errorString());
 
-        //startReconnect();
+        startReconnect();
     }
     else {
         emit modbusErrorOccured("Ошибка");
@@ -739,15 +783,23 @@ void Controller::onControllerStatusReply()
 void Controller::onControllerPollFinished()
 {
     QModbusReply *reply = static_cast<QModbusReply*>(sender());
-    _valueTargetTemp = reply->result().value(_regTargetTemp);
-    _valuePIDp = reply->result().value(_regPID_p);
-    _valuePIDi = reply->result().value(_regPID_i);
-    _valuePIDd = reply->result().value(_regPID_d);
 
-    _valueUptimeLo = reply->result().value(_regUptimeLo);
-    _valueUptimeHi = reply->result().value(_regUptimeHi);
-    _valueSteptimeLo = reply->result().value(_regSteptimeLo);
-    _valueSteptimeHi = reply->result().value(_regSteptimeHi);
+    ControllerData controllerData;
+
+    QVector<quint16> data = reply->result().values();
+    controllerData.fromModbusData(data);
+    qDebug() << "NEW" << controllerData.temp1() << controllerData.realTemp1();
+
+
+//    _valueTargetTemp = reply->result().value(_regTargetTemp);
+//    _valuePIDp = reply->result().value(_regPID_p);
+//    _valuePIDi = reply->result().value(_regPID_i);
+//    _valuePIDd = reply->result().value(_regPID_d);
+
+//    _valueUptimeLo = reply->result().value(_regUptimeLo);
+//    _valueUptimeHi = reply->result().value(_regUptimeHi);
+//    _valueSteptimeLo = reply->result().value(_regSteptimeLo);
+//    _valueSteptimeHi = reply->result().value(_regSteptimeHi);
 
 
 

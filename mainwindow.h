@@ -18,6 +18,7 @@
 
 #include "log.h"
 #include "controller.h"
+#include "controllerdata.h"
 
 
 QT_CHARTS_USE_NAMESPACE
@@ -103,6 +104,7 @@ private:
 //    QChartView *chartView;
 
 
+
     Controller *controller;
 
     QLineSeries *series;
@@ -171,6 +173,8 @@ private:
     bool _chartScroll = true;
 
     QString timeSecToHMS(const quint32 sec);
+
+    QString numberFormat(const qreal value);
 
 
 };

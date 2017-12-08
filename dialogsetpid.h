@@ -17,9 +17,10 @@ public:
     ~DialogSetPid();
 
 
-    int getP100();
-    int getI100();
-    int getD100();
+    qreal getP() const;
+    qreal getI() const;
+    qreal getD() const;
+
 
 
 private slots:
@@ -27,7 +28,6 @@ private slots:
 
 private:
     Ui::DialogSetPid *ui;
-    int nint(double x);
 };
 
 #endif // DIALOGSETPID_H

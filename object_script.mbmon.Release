@@ -9,6 +9,7 @@ INPUT(
 ./release\controller.o
 ./release\dialogsetpid.o
 ./release\dialogarchive.o
+./release\controllerdata.o
 ./release\moc_mainwindow.o
 ./release\moc_dialogsettemp.o
 ./release\moc_dialogsettings.o
@@ -18,4 +19,5 @@ INPUT(
 ./release\moc_controller.o
 ./release\moc_dialogsetpid.o
 ./release\moc_dialogarchive.o
+./release\moc_controllerdata.o
 );
